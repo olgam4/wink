@@ -39,7 +39,6 @@ async fn create_wink(mut db: Connection<Db>, wink: Json<WinkCreate>) -> Option<S
 
     match result {
         Ok(_) => {
-            println!("Success");
             Some(name)
         }
         Err(e) => {
@@ -58,7 +57,6 @@ async fn get_wink(name: String, mut db: Connection<Db>) -> Option<String> {
 
     match result {
         Ok(row) => {
-            println!("Success");
             Some(row.get(0))
         }
         Err(e) => {
@@ -86,7 +84,7 @@ pub fn stage() -> AdHoc {
         rocket
             .attach(Db::init())
             .attach(AdHoc::try_on_ignite("SQLx Migrations", run_migrations))
-            .mount("/", routes![create_wink, get_wink])
+            .mount("/api/", routes![create_wink, get_wink])
     })
 }
 
