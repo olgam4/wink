@@ -20,12 +20,15 @@ async fn main() {
         .route("/api/wink", post(create_wink))
         .nest_service("/static", ServeDir::new("static"));
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 8000));
-    tracing::info!("listening on {addr}");
+    let addr = SocketAddr::from(([0, 0, 0, 0], 8000));
+
+    println!("Listening on {}", addr);
+
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await
         .expect("Failed to bind server to {addr}");
+
 }
 
 async fn index() -> Markup {
