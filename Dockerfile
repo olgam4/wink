@@ -13,7 +13,7 @@ RUN cargo build --release
 FROM rust:1.49-slim-buster as runtime
 
 COPY --from=builder /wink/target/release/wink .
-COPY --from=builder /wink/src/static ./static
+COPY --from=builder /wink/src/static ./src/static
 COPY --from=builder /wink/migrations ./migrations
 
 EXPOSE 8000
