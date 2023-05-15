@@ -4,6 +4,7 @@ WORKDIR /wink
 
 COPY ./src ./src
 COPY ./migrations ./migrations
+COPY ./sqlx-data.json ./sqlx-data.json
 COPY ./Cargo.lock ./Cargo.lock
 COPY ./Cargo.toml ./Cargo.toml
 

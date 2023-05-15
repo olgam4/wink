@@ -19,7 +19,6 @@ mod page;
 async fn main() {
     tracing_subscriber::fmt::init();
     dotenv().ok();
-    println!("{}, {}", env::var("DATABASE_URL").unwrap(), env::var("PORT").unwrap());
 
     let pool = PgPoolOptions::new()
         .max_connections(50)
