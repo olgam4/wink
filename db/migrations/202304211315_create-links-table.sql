@@ -1,5 +1,0 @@
-CREATE TABLE links (
-    name TEXT PRIMARY KEY,
-    url TEXT NOT NULL,
-    hit_count INTEGER NOT NULL DEFAULT 0
-);

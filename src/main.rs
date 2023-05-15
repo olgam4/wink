@@ -1,94 +1,72 @@
-#[macro_use]
-extern crate rocket;
+use std::net::SocketAddr;
 
-use rand::{distributions::Alphanumeric, Rng};
-use rocket::fairing::AdHoc;
-use rocket::serde::json::Json;
-use rocket::{fairing, Build, Rocket};
-use rocket_db_pools::sqlx;
-use rocket_db_pools::{Connection, Database};
-use serde::{Serialize, Deserialize};
-use sqlx::Row;
+use axum::{
+    http::StatusCode,
+    routing::{get, post},
+    Json, Router, Form,
+};
+use maud::{Markup, html};
+use rand::{distributions::Alphanumeric, thread_rng, Rng};
+use serde::{Deserialize, Serialize};
 
-#[derive(Database)]
-#[database("db_sqlite")]
-struct Db(sqlx::SqlitePool);
+mod page;
 
-fn generate_string(length: usize) -> String {
-    rand::thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(length)
-        .map(char::from)
-        .collect()
+#[tokio::main]
+async fn main() {
+    tracing_subscriber::fmt::init();
+
+    let app = Router::new()
+        .route("/", get(index))
+        .route("/api/wink", post(create_wink));
+
+    let addr = SocketAddr::from(([127, 0, 0, 1], 8000));
+    tracing::info!("listening on {addr}");
+    axum::Server::bind(&addr)
+        .serve(app.into_make_service())
+        .await
+        .expect("Failed to bind server to {addr}");
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct WinkCreate {
-    url: String,
-}
-
-#[post("/wink", data = "<wink>")]
-async fn create_wink(mut db: Connection<Db>, wink: Json<WinkCreate>) -> Option<String> {
-    let name = generate_string(8);
-
-    let result = sqlx::query("INSERT INTO links (name, url) VALUES (?, ?)")
-        .bind(&name)
-        .bind(&wink.url)
-        .execute(&mut *db)
-        .await;
-
-    match result {
-        Ok(_) => {
-            Some(name)
-        }
-        Err(e) => {
-            println!("Error: {}", e);
-            None
-        }
-    }
-}
-
-#[get("/wink/<name>")]
-async fn get_wink(name: String, mut db: Connection<Db>) -> Option<String> {
-    let result = sqlx::query("SELECT url FROM links WHERE name = ?")
-        .bind(&name)
-        .fetch_one(&mut *db)
-        .await;
-
-    match result {
-        Ok(row) => {
-            Some(row.get(0))
-        }
-        Err(e) => {
-            println!("Error: {}", e);
-            None
-        }
-    }
-}
-
-async fn run_migrations(rocket: Rocket<Build>) -> fairing::Result {
-    match Db::fetch(&rocket) {
-        Some(db) => match sqlx::migrate!("db/migrations").run(&db.0).await {
-            Ok(_) => Ok(rocket),
-            Err(e) => {
-                error!("Failed to initialize SQLx database: {}", e);
-                Err(rocket)
-            }
-        },
-        None => Err(rocket),
-    }
-}
-
-pub fn stage() -> AdHoc {
-    AdHoc::on_ignite("SQLx Stage", |rocket| async {
-        rocket
-            .attach(Db::init())
-            .attach(AdHoc::try_on_ignite("SQLx Migrations", run_migrations))
-            .mount("/api/", routes![create_wink, get_wink])
+async fn index() -> Markup {
+    page::page(html! { 
+        h1 { "Wink" }
+        p { "Click the button to wink!" }
+        (component_create_wink())
     })
 }
 
-#[launch]
-fn rocket() -> _ {
-    rocket::build().attach(stage())
+fn component_wink(wink: String) -> Markup {
+    html! {
+        p id="wink" { (wink) }
+    }
+}
+
+fn component_create_wink() -> Markup {
+    html! {
+        form hx-post="/api/wink" hx-target="#wink" {
+            input type="text" name="url" placeholder="URL" {}
+            button type="submit" { "Wink!" }
+        }
+        p id="wink" {}
+    }
+}
+
+#[derive(Serialize)]
+struct Wink {
+    name: String,
+}
+
+#[derive(Deserialize)]
+struct CreateWink {
+    url: String,
+}
+
+async fn create_wink(Form(payload): Form<CreateWink>) -> Markup {
+    let rand_string: String = thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(8)
+        .map(char::from)
+        .collect();
+
+    component_wink(rand_string)
 }
