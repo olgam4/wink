@@ -1,2 +1,0 @@
-[default.databases.db_sqlite]
-url = "db.sqlite"

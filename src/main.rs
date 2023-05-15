@@ -1,13 +1,13 @@
 use std::net::SocketAddr;
 
 use axum::{
-    http::StatusCode,
     routing::{get, post},
-    Json, Router, Form,
+    Form, Router,
 };
-use maud::{Markup, html};
+use maud::{html, Markup};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
+use tower_http::services::ServeDir;
 
 mod page;
 
@@ -17,7 +17,8 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(index))
-        .route("/api/wink", post(create_wink));
+        .route("/api/wink", post(create_wink))
+        .nest_service("/static", ServeDir::new("static"));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 8000));
     tracing::info!("listening on {addr}");
@@ -28,7 +29,7 @@ async fn main() {
 }
 
 async fn index() -> Markup {
-    page::page(html! { 
+    page::page(html! {
         h1 { "Wink" }
         p { "Click the button to wink!" }
         (component_create_wink())
