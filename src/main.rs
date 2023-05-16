@@ -1,20 +1,27 @@
 use std::{env, net::SocketAddr};
 
+use argon2::{Argon2, password_hash::SaltString, PasswordHasher};
 use axum::{
     extract::{Path, State},
     response::Response,
     routing::{get, post},
     Form, Router,
 };
-use axum_macros::debug_handler;
+use components::wink;
 use dotenvy::dotenv;
-use maud::{html, Markup};
+use maud::Markup;
+use nanoid::nanoid;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use tower_http::services::ServeDir;
+use utils::parse_url;
+
+use crate::components::{index, login_page, signup_page};
 
 mod page;
+mod components;
+mod utils;
 
 #[tokio::main]
 async fn main() {
@@ -32,7 +39,11 @@ async fn main() {
     let app = Router::new()
         .route("/", get(index))
         .route("/:wink", get(get_wink))
+        .route("/login", get(login_page))
+        .route("/signup", get(signup_page))
         .route("/api/wink", post(create_wink))
+        .route("/api/login", post(login))
+        .route("/api/signup", post(signup))
         .nest_service("/static", ServeDir::new("src/static"))
         .with_state(pool);
 
@@ -46,48 +57,66 @@ async fn main() {
         .expect(format!("Failed to bind server to {addr}").as_str());
 }
 
-async fn index() -> Markup {
-    page::page(html! {
-        img height="100" src="/static/wink.png" {}
-        p { "Click the button to wink!" }
-        (component_create_wink())
-    })
+#[derive(Deserialize)]
+struct CreateUser {
+    email: String,
+    password: String,
 }
 
-fn component_wink(wink: String) -> Markup {
-    html! {
-        div class="wink" {
-            p id="wink" { "gow.ink/"(wink) }
-            clipboard-copy _="on click toggle .hidden on .copy-icon" class="copy" for="copy-wink" {
-                i class="fa-regular fa-copy copy-icon" {}
-                i class="hidden green fa-regular fa-circle-check copy-icon" {}
-            }
-            span id="copy-wink" { "https://www.gow.ink/"(wink) }
-        }
-    }
-}
+async fn signup(State(pool): State<PgPool>, Form(create_user): Form<CreateUser>) -> Response<String> {
+    let salt = SaltString::generate(&mut thread_rng());
 
-fn component_create_wink() -> Markup {
-    html! {
-        form hx-post="/api/wink" hx-target="#wink" {
-            input type="text" name="url" placeholder="URL" {}
-            button type="submit" { "Wink!" }
-        }
-        p id="wink" {}
-    }
-}
+    let argon2 = Argon2::default();
+    let hash = argon2
+        .hash_password(create_user.password.as_bytes(), &salt)
+        .unwrap()
+        .to_string();
 
-#[derive(Serialize)]
-struct Wink {
-    name: String,
+    let id = nanoid!();
+
+    sqlx::query!(
+        "INSERT INTO users (id, email, password) VALUES ($1, $2, $3)",
+        id,
+        create_user.email,
+        hash,
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    Response::builder()
+        .status(301)
+        .header("HX-Location", "/")
+        .header("Location", "/")
+        .body("".to_string())
+        .unwrap()
 }
 
 #[derive(Deserialize)]
-struct CreateWink {
-    url: String,
+struct LoginUser {
+    email: String,
+    password: String,
 }
 
-#[debug_handler]
+async fn login(State(pool): State<PgPool>, Form(login_user): Form<LoginUser>) -> Response<String> {
+    let user = sqlx::query!(
+        "SELECT * FROM users WHERE email = $1",
+        login_user.email,
+    )
+    .fetch_optional(&pool)
+    .await
+    .unwrap();
+
+    let argon2 = Argon2::default();
+
+    Response::builder()
+        .status(301)
+        .header("HX-Location", "/")
+        .header("Location", "/")
+        .body("".to_string())
+        .unwrap()
+}
+
 async fn get_wink(State(pool): State<PgPool>, Path(wink): Path<String>) -> Response<String> {
     let wink = sqlx::query!("SELECT * FROM winks WHERE name = $1", wink)
         .fetch_optional(&pool)
@@ -111,12 +140,9 @@ async fn get_wink(State(pool): State<PgPool>, Path(wink): Path<String>) -> Respo
         .unwrap()
 }
 
-fn parse_url(url: &str) -> String {
-    if url.starts_with("http://") || url.starts_with("https://") {
-        url.to_string()
-    } else {
-        format!("https://{}", url)
-    }
+#[derive(Deserialize)]
+struct CreateWink {
+    url: String,
 }
 
 async fn create_wink(State(pool): State<PgPool>, Form(payload): Form<CreateWink>) -> Markup {
@@ -138,7 +164,7 @@ async fn create_wink(State(pool): State<PgPool>, Form(payload): Form<CreateWink>
     )
     .execute(&pool)
     .await
-    .unwrap();
+    .expect("can't insert wink");
 
-    component_wink(rand_string)
+    wink(rand_string)
 }

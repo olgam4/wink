@@ -5,6 +5,8 @@ edition = "2021"
 
 [dependencies]
 rand = "0.8.5"
+nanoid = "0.4.0"
+argon2 = "0.5.0"
 maud = { version = "*", features = ["axum"] }
 
 axum = "0.6"
