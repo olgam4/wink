@@ -58,12 +58,12 @@ fn component_wink(wink: String) -> Markup {
     html! {
         div class="wink" {
             p id="wink" { "gow.ink/"(wink) }
-            clipboard-copy class="copy" for="copy-wink" {
-                i class="fa-regular fa-copy" {}
+            clipboard-copy _="on click toggle .hidden on .copy-icon" class="copy" for="copy-wink" {
+                i class="fa-regular fa-copy copy-icon" {}
+                i class="hidden green fa-regular fa-circle-check copy-icon" {}
             }
             span id="copy-wink" { "https://www.gow.ink/"(wink) }
         }
-        script src="https://unpkg.com/@github/clipboard-copy-element@latest" defer="" {}
     }
 }
 

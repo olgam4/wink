@@ -46,3 +46,15 @@ input {
 .copy {
   cursor: pointer;
 }
+
+.hidden {
+  display: none;
+}
+
+.hidden::before {
+  display:none
+}
+
+.green {
+  color: green;
+}
