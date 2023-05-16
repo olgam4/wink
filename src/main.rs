@@ -64,14 +64,7 @@ struct CreateUser {
 }
 
 async fn signup(State(pool): State<PgPool>, Form(create_user): Form<CreateUser>) -> Response<String> {
-    let length = env::var("SALT_LENGTH").unwrap().parse::<usize>().unwrap();
-    let rand_string: String = thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(length)
-        .map(char::from)
-        .collect();
-
-    let salt = SaltString::from_b64(rand_string.as_str()).unwrap();
+    let salt = SaltString::generate(thread_rng());
 
     let argon2 = Argon2::default();
 
@@ -120,7 +113,7 @@ async fn login(State(pool): State<PgPool>, Form(login_user): Form<LoginUser>) ->
     let argon2 = Argon2::default();
     let saltedhash = user.unwrap().password;
     let length = env::var("SALT_LENGTH").unwrap().parse::<usize>().unwrap();
-    let salt = SaltString::from_b64(&saltedhash[..length]).unwrap();
+    let salt = SaltString::new(&saltedhash[..length]).unwrap();
 
     let hashed_login = argon2
         .hash_password(login_user.password.as_bytes(), &salt)
