@@ -13,7 +13,13 @@ pub async fn index() -> Markup {
 }
 
 pub async fn login_page() -> Markup {
-    page::page(login())
+    page::page(html! {
+        form method="POST" action="/api/login" {
+            input type="text" name="email" placeholder="Email" {}
+            input type="password" name="password" placeholder="Password" {}
+            button type="submit" { "Login" }
+        }
+    })
 }
 
 pub async fn signup_page() -> Markup {
@@ -46,15 +52,5 @@ pub fn create_wink() -> Markup {
             button type="submit" { "Wink!" }
         }
         p id="wink" {}
-    }
-}
-
-pub fn login() -> Markup {
-    html! {
-        form hx-post="/api/login" {
-            input type="text" name="username" placeholder="Username" {}
-            input type="password" name="password" placeholder="Password" {}
-            button type="submit" { "Login" }
-        }
     }
 }

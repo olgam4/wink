@@ -1,6 +1,6 @@
 use std::{env, net::SocketAddr};
 
-use argon2::{Argon2, password_hash::SaltString, PasswordHasher};
+use argon2::{Argon2, password_hash::{SaltString, Salt}, PasswordHasher};
 use axum::{
     extract::{Path, State},
     response::Response,
@@ -64,9 +64,17 @@ struct CreateUser {
 }
 
 async fn signup(State(pool): State<PgPool>, Form(create_user): Form<CreateUser>) -> Response<String> {
-    let salt = SaltString::generate(&mut thread_rng());
+    let length = env::var("SALT_LENGTH").unwrap().parse::<usize>().unwrap();
+    let rand_string: String = thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(length)
+        .map(char::from)
+        .collect();
+
+    let salt = SaltString::new(rand_string.as_str()).unwrap();
 
     let argon2 = Argon2::default();
+
     let hash = argon2
         .hash_password(create_user.password.as_bytes(), &salt)
         .unwrap()
@@ -74,11 +82,13 @@ async fn signup(State(pool): State<PgPool>, Form(create_user): Form<CreateUser>)
 
     let id = nanoid!();
 
+    let saltedhash = format!("{}{}", salt, hash);
+
     sqlx::query!(
         "INSERT INTO users (id, email, password) VALUES ($1, $2, $3)",
         id,
         create_user.email,
-        hash,
+        saltedhash
     )
     .execute(&pool)
     .await
@@ -108,13 +118,34 @@ async fn login(State(pool): State<PgPool>, Form(login_user): Form<LoginUser>) ->
     .unwrap();
 
     let argon2 = Argon2::default();
+    let saltedhash = user.unwrap().password;
+    let length = env::var("SALT_LENGTH").unwrap().parse::<usize>().unwrap();
+    let salt = SaltString::new(&saltedhash[..length]).unwrap();
 
-    Response::builder()
-        .status(301)
-        .header("HX-Location", "/")
-        .header("Location", "/")
-        .body("".to_string())
+    let hashed_login = argon2
+        .hash_password(login_user.password.as_bytes(), &salt)
         .unwrap()
+        .to_string();
+
+    let salted_login = format!("{}{}", salt, hashed_login);
+
+    if salted_login == saltedhash {
+        println!("Logged in!");
+        Response::builder()
+            .status(301)
+            .header("HX-Location", "/")
+            .header("Location", "/")
+            .body("".to_string())
+            .unwrap()
+    } else {
+        println!("Wrong password!");
+        Response::builder()
+            .status(301)
+            .header("HX-Location", "/login")
+            .header("Location", "/login")
+            .body("".to_string())
+            .unwrap()
+    }
 }
 
 async fn get_wink(State(pool): State<PgPool>, Path(wink): Path<String>) -> Response<String> {
