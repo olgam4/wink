@@ -2,8 +2,9 @@ use std::{env, net::SocketAddr};
 
 use axum::{
     extract::{Path, State},
+    response::Response,
     routing::{get, post},
-    Form, Router, response::Response,
+    Form, Router,
 };
 use axum_macros::debug_handler;
 use dotenvy::dotenv;
@@ -47,7 +48,7 @@ async fn main() {
 
 async fn index() -> Markup {
     page::page(html! {
-        h1 { "Wink" }
+        img height="100" src="/static/wink.png" {}
         p { "Click the button to wink!" }
         (component_create_wink())
     })
@@ -55,7 +56,14 @@ async fn index() -> Markup {
 
 fn component_wink(wink: String) -> Markup {
     html! {
-        p id="wink" { (wink) }
+        div class="wink" {
+            p id="wink" { "gow.ink/"(wink) }
+            clipboard-copy class="copy" for="copy-wink" {
+                i class="fa-regular fa-copy" {}
+            }
+            span id="copy-wink" { "https://www.gow.ink/"(wink) }
+        }
+        script src="https://unpkg.com/@github/clipboard-copy-element@latest" defer="" {}
     }
 }
 
@@ -81,19 +89,34 @@ struct CreateWink {
 
 #[debug_handler]
 async fn get_wink(State(pool): State<PgPool>, Path(wink): Path<String>) -> Response<String> {
-    let url = sqlx::query!("SELECT url FROM winks WHERE name = $1", wink)
+    let wink = sqlx::query!("SELECT * FROM winks WHERE name = $1", wink)
         .fetch_optional(&pool)
         .await
         .expect("can't fetch wink")
-        .unwrap()
-        .url;
+        .unwrap();
+
+    sqlx::query!(
+        "UPDATE winks SET hit_counter = hit_counter + 1 WHERE name = $1",
+        wink.name
+    )
+    .execute(&pool)
+    .await
+    .expect("can't update wink");
 
     Response::builder()
         .status(301)
-        .header("HX-Location", url.clone())
-        .header("Location", url)
+        .header("HX-Location", wink.url.clone())
+        .header("Location", wink.url)
         .body("".to_string())
         .unwrap()
+}
+
+fn parse_url(url: &str) -> String {
+    if url.starts_with("http://") || url.starts_with("https://") {
+        url.to_string()
+    } else {
+        format!("https://{}", url)
+    }
 }
 
 async fn create_wink(State(pool): State<PgPool>, Form(payload): Form<CreateWink>) -> Markup {
@@ -103,13 +126,15 @@ async fn create_wink(State(pool): State<PgPool>, Form(payload): Form<CreateWink>
         .map(char::from)
         .collect();
 
+    let url = parse_url(payload.url.as_str());
+
     sqlx::query!(
         r#"
         INSERT INTO winks (name, url)
         VALUES ($1, $2)
         "#,
         rand_string,
-        payload.url
+        url,
     )
     .execute(&pool)
     .await

@@ -1,15 +1,27 @@
 {
   "db": "PostgreSQL",
-  "30b9ffaa7b958f78e8f62197da84f135a638429d1b9a25e83266f71d3a467f48": {
+  "7bca686a4ccdfec9e04d276a8cbe9e30277d53cef4e1a80ed97ad51356c36ec7": {
     "describe": {
       "columns": [
         {
-          "name": "url",
+          "name": "name",
           "ordinal": 0,
           "type_info": "Text"
+        },
+        {
+          "name": "url",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "hit_counter",
+          "ordinal": 2,
+          "type_info": "Int4"
         }
       ],
       "nullable": [
+        false,
+        false,
         false
       ],
       "parameters": {
@@ -18,7 +30,7 @@
         ]
       }
     },
-    "query": "SELECT url FROM winks WHERE name = $1"
+    "query": "SELECT * FROM winks WHERE name = $1"
   },
   "9edf0d954df194a17e110d4776cdbff5eb620188bfafbdd3d9d3eb2a71c3ae5d": {
     "describe": {
@@ -32,5 +44,17 @@
       }
     },
     "query": "\n        INSERT INTO winks (name, url)\n        VALUES ($1, $2)\n        "
+  },
+  "ff2ca9636ed8adda63191219b13b5e857bdd1157499983ef6d64f658eb27e59e": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "UPDATE winks SET hit_counter = hit_counter + 1 WHERE name = $1"
   }
 }
