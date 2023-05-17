@@ -26,3 +26,4 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 lightningcss = "1.0.0-alpha.41"
 
 dotenvy = "*"
+base64 = "0.21.0"

@@ -10,3 +10,5 @@ docker:
 postgres:
   docker run -p 5432:5432 --rm --name pgsql-wink-dev -e POSTGRES_PASSWORD=Welcome4$ postgres
 
+migrate:
+  cargo sqlx migrate run

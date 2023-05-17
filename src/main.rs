@@ -1,6 +1,5 @@
 use std::{env, net::SocketAddr};
 
-use argon2::{Argon2, password_hash::SaltString, PasswordHasher};
 use axum::{
     extract::{Path, State},
     response::Response,
@@ -9,18 +8,19 @@ use axum::{
 };
 use components::wink;
 use dotenvy::dotenv;
+use hasher::Hasher;
 use maud::Markup;
 use nanoid::nanoid;
-use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use serde::Deserialize;
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use tower_http::services::ServeDir;
-use utils::parse_url;
+use utils::{parse_url, redirect, get_salt_lenght, get_random_string};
 
 use crate::components::{index, login_page, signup_page};
 
-mod page;
 mod components;
+mod hasher;
+mod page;
 mod utils;
 
 #[tokio::main]
@@ -49,7 +49,7 @@ async fn main() {
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8000));
 
-    println!("Listening on {}", addr);
+    println!("Listening on {addr}");
 
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
@@ -63,36 +63,26 @@ struct CreateUser {
     password: String,
 }
 
-async fn signup(State(pool): State<PgPool>, Form(create_user): Form<CreateUser>) -> Response<String> {
-    let salt = SaltString::generate(thread_rng());
-
-    let argon2 = Argon2::default();
-
-    let hash = argon2
-        .hash_password(create_user.password.as_bytes(), &salt)
-        .unwrap()
-        .to_string();
-
+async fn signup(
+    State(pool): State<PgPool>,
+    Form(create_user): Form<CreateUser>,
+) -> Response<String> {
     let id = nanoid!();
 
-    let saltedhash = format!("{}{}", salt, hash);
+    let (hash, salt) = Hasher::hash(&create_user.password);
+    let salted_hash = format!("{hash}{salt}");
 
     sqlx::query!(
         "INSERT INTO users (id, email, password) VALUES ($1, $2, $3)",
         id,
         create_user.email,
-        saltedhash
+        salted_hash,
     )
     .execute(&pool)
     .await
-    .unwrap();
+    .expect("Failed to insert user");
 
-    Response::builder()
-        .status(301)
-        .header("HX-Location", "/")
-        .header("Location", "/")
-        .body("".to_string())
-        .unwrap()
+    redirect("/")
 }
 
 #[derive(Deserialize)]
@@ -102,42 +92,28 @@ struct LoginUser {
 }
 
 async fn login(State(pool): State<PgPool>, Form(login_user): Form<LoginUser>) -> Response<String> {
-    let user = sqlx::query!(
-        "SELECT * FROM users WHERE email = $1",
-        login_user.email,
-    )
-    .fetch_optional(&pool)
-    .await
-    .unwrap();
+    let password = sqlx::query!("SELECT password FROM users WHERE email = $1", login_user.email,)
+        .fetch_optional(&pool)
+        .await
+        .expect("Failed to fetch user");
 
-    let argon2 = Argon2::default();
-    let saltedhash = user.unwrap().password;
-    let length = env::var("SALT_LENGTH").unwrap().parse::<usize>().unwrap();
-    let salt = SaltString::new(&saltedhash[..length]).unwrap();
+    let password = match password {
+        Some(password) => password.password,
+        None => return redirect("/login"),
+    };
 
-    let hashed_login = argon2
-        .hash_password(login_user.password.as_bytes(), &salt)
-        .unwrap()
-        .to_string();
+    let length = get_salt_lenght();
+    let salt = password.chars().rev().take(length).collect::<String>();
+    let salt = salt.chars().rev().collect::<String>();
 
-    let salted_login = format!("{}{}", salt, hashed_login);
+    let password = password.replace(&salt, "");
 
-    if salted_login == saltedhash {
-        println!("Logged in!");
-        Response::builder()
-            .status(301)
-            .header("HX-Location", "/")
-            .header("Location", "/")
-            .body("".to_string())
-            .unwrap()
+    let (hash, _) = Hasher::hash_with_salt(&login_user.password, &salt);
+
+    if hash == password {
+        redirect("/")
     } else {
-        println!("Wrong password!");
-        Response::builder()
-            .status(301)
-            .header("HX-Location", "/login")
-            .header("Location", "/login")
-            .body("".to_string())
-            .unwrap()
+        redirect("/login")
     }
 }
 
@@ -146,7 +122,7 @@ async fn get_wink(State(pool): State<PgPool>, Path(wink): Path<String>) -> Respo
         .fetch_optional(&pool)
         .await
         .expect("can't fetch wink")
-        .unwrap();
+        .expect("wink not found");
 
     sqlx::query!(
         "UPDATE winks SET hit_counter = hit_counter + 1 WHERE name = $1",
@@ -156,12 +132,7 @@ async fn get_wink(State(pool): State<PgPool>, Path(wink): Path<String>) -> Respo
     .await
     .expect("can't update wink");
 
-    Response::builder()
-        .status(301)
-        .header("HX-Location", wink.url.clone())
-        .header("Location", wink.url)
-        .body("".to_string())
-        .unwrap()
+    redirect(&wink.url)
 }
 
 #[derive(Deserialize)]
@@ -170,13 +141,8 @@ struct CreateWink {
 }
 
 async fn create_wink(State(pool): State<PgPool>, Form(payload): Form<CreateWink>) -> Markup {
-    let rand_string: String = thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(8)
-        .map(char::from)
-        .collect();
-
     let url = parse_url(payload.url.as_str());
+    let rand_string = get_random_string(8);
 
     sqlx::query!(
         r#"
