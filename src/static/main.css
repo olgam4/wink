@@ -1,11 +1,55 @@
+* {
+  box-sizing: border-box;
+}
+
 html {
   font-family: system-ui;
+  --dark-eye-color: #131637;
+  --darker-eye-color: #111432;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+.full {
+  position: absolute;
+  display: flex;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+nav {
+  height: 30px;
+  padding: 5px 10px;
+  width: 100%;
+  display: flex;
+
+  & > div {
+    margin-left: auto;
+    display: flex;
+    gap: 10px;
+  }
+}
+
+.gradient-eye-colors {
+  background: linear-gradient(
+    45deg,
+    var(--dark-eye-color) 0%,
+    var(--darker-eye-color) 100%
+  );
 }
 
 h1 {
   font-size: 2em;
   font-weight: 600;
   margin: 10px;
+  color: #111;
 }
 
 p {
@@ -13,28 +57,54 @@ p {
 }
 
 form {
+  --bg-color: #eee;
+  --gap: 5px;
   margin: 10px;
   display: flex;
-  gap: 5px;
+  gap: var(--gap);
+  
+  & button {
+    padding: var(--gap) 10px;
+    border-radius: var(--gap);
+    border: none;
+    cursor: pointer;
+    transition: scale 0.2s ease, box-shadow 0.2s ease;
+
+    &:has(i) {
+      background-color: var(--dark-eye-color);
+    }
+
+    &:hover {
+      box-shadow: 0 3px 3px 1px rgba(0, 0, 0, 0.1);
+      scale: 1.05;
+    }
+  }
+
+  & input {
+    padding: var(--gap);
+    border-radius: var(--gap);
+    border: none;
+    background-color: var(--bg-color);
+  }
 }
 
-button {
-  padding: 5px;
-  border-radius: 5px;
-  border: none;
-  background-color: #eee;
-  cursor: pointer;
+img {
+  margin: 100px;
 }
 
-input {
-  padding: 5px;
-  border-radius: 5px;
-  border: none;
-  background-color: #eee;
-}
+.band {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  background-color: var(--dark-eye-color);
 
-#copy-wink {
-  display: none;
+  & p {
+    color: #fff;
+    font-size: 1.5em;
+    font-weight: 600;
+  }
 }
 
 .wink {
@@ -49,12 +119,28 @@ input {
 
 .hidden {
   display: none;
+
+  &::before {
+    display: none;
+  }
 }
 
-.hidden::before {
-  display:none
+.card {
+  max-width: 90ch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 10px;
 }
+
+{/* COLORS */}
 
 .green {
   color: green;
+}
+
+.white {
+  color: white;
 }
