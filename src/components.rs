@@ -1,4 +1,6 @@
+use base64::{engine::general_purpose, Engine};
 use maud::{html, Markup};
+use qrcode_generator::QrCodeEcc;
 
 use crate::page;
 
@@ -63,6 +65,7 @@ pub async fn signup_page() -> Markup {
 }
 
 pub fn wink(wink: String) -> Markup {
+    let wink_link = format!("https://www.gow.ink/{}", wink);
     html! {
         div.wink {
             p id="wink" { "gow.ink/"(wink) }
@@ -70,7 +73,18 @@ pub fn wink(wink: String) -> Markup {
                 i class="fa-regular fa-copy copy-icon" {}
                 i class="hidden green fa-regular fa-circle-check copy-icon" {}
             }
-            span.hidden id="copy-wink" { "https://www.gow.ink/"(wink) }
+            span.hidden id="copy-wink" { (wink_link) }
+            (qr_code(&wink_link))
         }
+    }
+}
+
+fn qr_code(link: &String) -> Markup {
+    let result: Vec<u8> =
+        qrcode_generator::to_png_to_vec(link, QrCodeEcc::Low, 1024).unwrap();
+    let b64 = general_purpose::STANDARD.encode(&result);
+
+    html! {
+        img width="100" src=(format!("data:image/png;base64,{}", b64)) {}
     }
 }

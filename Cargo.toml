@@ -27,3 +27,5 @@ lightningcss = "1.0.0-alpha.41"
 
 dotenvy = "*"
 base64 = "0.21.0"
+
+qrcode-generator = "4.1.8"
