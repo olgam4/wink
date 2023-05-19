@@ -17,6 +17,7 @@ fn head() -> Markup {
         head {
             meta charset="utf-8";
             title { "Wink" }
+            meta name="viewport" content="width=device-width, initial-scale=1"
 
             link rel="shortcut icon" type="image/x-icon" href="/static/favicon.ico" {}
             link rel="stylesheet" href="/static/reset.css" {}
