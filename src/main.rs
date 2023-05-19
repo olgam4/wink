@@ -6,6 +6,11 @@ use axum::{
     routing::{get, post},
     Form, Router,
 };
+use axum_sessions::{
+    async_session::MemoryStore,
+    extractors::{ReadableSession, WritableSession},
+    SessionLayer,
+};
 use components::wink;
 use dotenvy::dotenv;
 use hasher::Hasher;
@@ -14,7 +19,7 @@ use nanoid::nanoid;
 use serde::Deserialize;
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use tower_http::services::ServeDir;
-use utils::{parse_url, redirect, get_salt_lenght, get_random_string};
+use utils::{get_random_string, get_salt_lenght, parse_url, redirect};
 
 use crate::components::{index, login_page, signup_page};
 
@@ -36,6 +41,10 @@ async fn main() {
 
     sqlx::migrate!().run(&pool).await.unwrap();
 
+    let store = MemoryStore::new();
+    let secret = get_random_string(128);
+    let session_layer = SessionLayer::new(store, secret.as_str().as_bytes()).with_secure(true);
+
     let app = Router::new()
         .route("/", get(index))
         .route("/:wink", get(get_wink))
@@ -45,6 +54,7 @@ async fn main() {
         .route("/api/login", post(login))
         .route("/api/signup", post(signup))
         .nest_service("/static", ServeDir::new("src/static"))
+        .layer(session_layer)
         .with_state(pool);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8000));
@@ -91,14 +101,18 @@ struct LoginUser {
     password: String,
 }
 
-async fn login(State(pool): State<PgPool>, Form(login_user): Form<LoginUser>) -> Response<String> {
-    let password = sqlx::query!("SELECT password FROM users WHERE email = $1", login_user.email,)
+async fn login(
+    State(pool): State<PgPool>,
+    mut session: WritableSession,
+    Form(login_user): Form<LoginUser>,
+) -> Response<String> {
+    let result = sqlx::query!("SELECT * FROM users WHERE email = $1", login_user.email,)
         .fetch_optional(&pool)
         .await
         .expect("Failed to fetch user");
 
-    let password = match password {
-        Some(password) => password.password,
+    let (password, user_id) = match result {
+        Some(result) => (result.password, result.id),
         None => return redirect("/login"),
     };
 
@@ -111,6 +125,27 @@ async fn login(State(pool): State<PgPool>, Form(login_user): Form<LoginUser>) ->
     let (hash, _) = Hasher::hash_with_salt(&login_user.password, &salt);
 
     if hash == password {
+        let expiration = chrono::Utc::now()
+            .checked_add_signed(chrono::Duration::seconds(60 * 60 * 24))
+            .expect("valid timestamp")
+            .timestamp();
+        let id = nanoid!();
+
+        sqlx::query!(
+            r"
+             INSERT INTO sessions (id, user_id, expires)
+             VALUES ($1, $2, $3)
+             ",
+            id,
+            user_id,
+            expiration,
+        )
+        .execute(&pool)
+        .await
+        .expect("Failed to insert session");
+
+        session.insert("session_id", id).unwrap();
+
         redirect("/")
     } else {
         redirect("/login")
@@ -140,7 +175,11 @@ struct CreateWink {
     url: String,
 }
 
-async fn create_wink(State(pool): State<PgPool>, Form(payload): Form<CreateWink>) -> Markup {
+async fn create_wink(
+    State(pool): State<PgPool>,
+    session: ReadableSession,
+    Form(payload): Form<CreateWink>,
+) -> Markup {
     let url = parse_url(payload.url.as_str());
     let rand_string = get_random_string(8);
 
@@ -156,5 +195,34 @@ async fn create_wink(State(pool): State<PgPool>, Form(payload): Form<CreateWink>
     .await
     .expect("can't insert wink");
 
-    wink(rand_string)
+    let session_id = session.get::<String>("session_id");
+    match session_id {
+        Some(_) => {
+            let result = sqlx::query!(r#"SELECT * FROM sessions WHERE id = $1"#, session_id)
+                .fetch_optional(&pool)
+                .await
+                .expect("can't fetch session");
+
+            let user_id = match result {
+                Some(result) => result.user_id,
+                None => return wink(rand_string),
+            };
+
+            sqlx::query!(
+                r#"
+                INSERT INTO users_winks (id, user_id, wink_id)
+                VALUES ($1, $2, $3)
+                         "#,
+                nanoid!(),
+                user_id,
+                url,
+            )
+            .execute(&pool)
+            .await
+            .expect("can't insert user_wink");
+
+            wink(rand_string)
+        }
+        None => wink(rand_string),
+    }
 }
