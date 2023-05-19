@@ -165,8 +165,12 @@ async fn get_wink(State(pool): State<PgPool>, Path(wink): Path<String>) -> Respo
     let wink = sqlx::query!("SELECT * FROM winks WHERE name = $1", wink)
         .fetch_optional(&pool)
         .await
-        .expect("can't fetch wink")
-        .expect("wink not found");
+        .expect("can't fetch wink");
+
+    let wink = match wink {
+        Some(wink) => wink,
+        None => return redirect("/"),
+    };
 
     sqlx::query!(
         "UPDATE winks SET hit_counter = hit_counter + 1 WHERE name = $1",
