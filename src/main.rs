@@ -21,7 +21,7 @@ use sqlx::{postgres::PgPoolOptions, PgPool};
 use tower_http::services::ServeDir;
 use utils::{get_random_string, get_salt_lenght, parse_url, redirect};
 
-use crate::components::{index, login_page, signup_page};
+use crate::components::{index, login_page, signup_page, winks_page};
 
 mod components;
 mod hasher;
@@ -50,6 +50,7 @@ async fn main() {
         .route("/:wink", get(get_wink))
         .route("/login", get(login_page))
         .route("/signup", get(signup_page))
+        .route("/winks", get(winks_page))
         .route("/api/wink", post(create_wink))
         .route("/api/login", post(login))
         .route("/api/logout", post(logout))

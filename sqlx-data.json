@@ -1,5 +1,37 @@
 {
   "db": "PostgreSQL",
+  "2eccf2b3fbbf61add1c0b2829ced15b1764bedda60d77594c925719191b7e30c": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Text"
+        },
+        {
+          "name": "url",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "hit_counter",
+          "ordinal": 2,
+          "type_info": "Int4"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT * FROM winks WHERE name IN (SELECT wink_id FROM users_winks WHERE user_id = $1)"
+  },
   "7bca686a4ccdfec9e04d276a8cbe9e30277d53cef4e1a80ed97ad51356c36ec7": {
     "describe": {
       "columns": [

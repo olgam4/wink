@@ -28,6 +28,11 @@ body {
   justify-content: center;
 }
 
+.overflow-y-scroll {
+  overflow-y: scroll;
+  max-height: 70vh;
+}
+
 nav {
   padding: 5px 10px;
   width: 100%;
@@ -65,6 +70,15 @@ nav {
     cursor: pointer;
     height: 100%;
   }
+
+  & #winks {
+    color: var(--dark-eye-color);
+    border-radius: 5px;
+    text-decoration: none;
+    padding: 5px 10px;
+    cursor: pointer;
+    height: 100%;
+  }
 }
 
 .gradient-eye-colors {
@@ -84,6 +98,10 @@ h1 {
 
 p {
   margin: 10px;
+}
+
+.form-auth {
+  max-width: 90ch;
 }
 
 form {
@@ -156,13 +174,29 @@ img {
 }
 
 .card {
-  max-width: 90ch;
   display: flex;
   flex-direction: column;
   gap: 10px;
   background-color: #fff;
   padding: 20px;
   border-radius: 10px;
+}
+
+.back {
+  position: absolute;
+  top: 30px;
+  left: 30px;
+}
+
+.big {
+  font-size: 2em;
+  font-weight: 600;
+}
+
+.center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .green {
