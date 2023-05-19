@@ -1,15 +1,38 @@
+use axum::extract::State;
+use axum_sessions::extractors::ReadableSession;
 use base64::{engine::general_purpose, Engine};
 use maud::{html, Markup};
 use qrcode_generator::QrCodeEcc;
+use sqlx::PgPool;
 
 use crate::page;
 
-pub async fn index() -> Markup {
+pub async fn index(State(pool): State<PgPool>, session: ReadableSession) -> Markup {
+    let session_id = session.get::<String>("session_id");
+    let result = sqlx::query!(r#"SELECT * FROM sessions WHERE id = $1"#, session_id)
+        .fetch_optional(&pool)
+        .await
+        .expect("can't fetch session");
+
+    let is_logged_in = match result {
+        Some(result) => {
+            result.expires > chrono::Local::now().timestamp()
+        }
+        None => false,
+    };
+
     page::page(html! {
         nav {
             div {
-                a href="/login" { "Login" }
-                a href="/signup" { "Sign up" }
+                @match is_logged_in {
+                    true => {
+                        a id="logout-button" hx-post="/api/logout" hx-target="body" { "Logout" }
+                    },
+                    false => {
+                        a id="login-button" href="/login" { "Login" }
+                        a id="signup-button" href="/signup" { "Sign up" }
+                    }
+                }
             }
         }
         img height="100" src="/static/wink.png" {}
@@ -80,8 +103,7 @@ pub fn wink(wink: String) -> Markup {
 }
 
 fn qr_code(link: &String) -> Markup {
-    let result: Vec<u8> =
-        qrcode_generator::to_png_to_vec(link, QrCodeEcc::Low, 1024).unwrap();
+    let result: Vec<u8> = qrcode_generator::to_png_to_vec(link, QrCodeEcc::Low, 1024).unwrap();
     let b64 = general_purpose::STANDARD.encode(&result);
 
     html! {

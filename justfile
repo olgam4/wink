@@ -12,3 +12,6 @@ postgres:
 
 migrate:
   cargo sqlx migrate run
+
+prepare:
+  cargo sqlx prepare

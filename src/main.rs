@@ -52,6 +52,7 @@ async fn main() {
         .route("/signup", get(signup_page))
         .route("/api/wink", post(create_wink))
         .route("/api/login", post(login))
+        .route("/api/logout", post(logout))
         .route("/api/signup", post(signup))
         .nest_service("/static", ServeDir::new("src/static"))
         .layer(session_layer)
@@ -150,6 +151,13 @@ async fn login(
     } else {
         redirect("/login")
     }
+}
+
+async fn logout(mut session: WritableSession) -> Response<String> {
+    session.remove("session_id");
+    println!("session: {:?}", session);
+
+    redirect("/")
 }
 
 async fn get_wink(State(pool): State<PgPool>, Path(wink): Path<String>) -> Response<String> {

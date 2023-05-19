@@ -2,6 +2,10 @@
   box-sizing: border-box;
 }
 
+a {
+  text-decoration: none;
+}
+
 html {
   font-family: system-ui;
   --dark-eye-color: #131637;
@@ -25,7 +29,6 @@ body {
 }
 
 nav {
-  height: 30px;
   padding: 5px 10px;
   width: 100%;
   display: flex;
@@ -34,6 +37,33 @@ nav {
     margin-left: auto;
     display: flex;
     gap: 10px;
+  }
+
+  & #signup-button {
+    background-color: var(--dark-eye-color);
+    color: #fff;
+    border-radius: 5px;
+    padding: 5px 10px;
+    cursor: pointer;
+    height: 100%;
+  }
+
+  & #login-button {
+    color: var(--dark-eye-color);
+    border-radius: 5px;
+    text-decoration: none;
+    padding: 5px 10px;
+    cursor: pointer;
+    height: 100%;
+  }
+
+  & #logout-button {
+    color: var(--dark-eye-color);
+    border-radius: 5px;
+    text-decoration: none;
+    padding: 5px 10px;
+    cursor: pointer;
+    height: 100%;
   }
 }
 
@@ -134,8 +164,6 @@ img {
   padding: 20px;
   border-radius: 10px;
 }
-
-{/* COLORS */}
 
 .green {
   color: green;
