@@ -189,14 +189,14 @@ async fn create_wink(
     Form(payload): Form<CreateWink>,
 ) -> Markup {
     let url = parse_url(payload.url.as_str());
-    let rand_string = get_random_string(8);
+    let name = get_random_string(8);
 
     sqlx::query!(
         r#"
         INSERT INTO winks (name, url)
         VALUES ($1, $2)
         "#,
-        rand_string,
+        name,
         url,
     )
     .execute(&pool)
@@ -213,7 +213,7 @@ async fn create_wink(
 
             let user_id = match result {
                 Some(result) => result.user_id,
-                None => return wink(rand_string),
+                None => return wink(name),
             };
 
             sqlx::query!(
@@ -223,14 +223,14 @@ async fn create_wink(
                          "#,
                 nanoid!(),
                 user_id,
-                url,
+                name,
             )
             .execute(&pool)
             .await
             .expect("can't insert user_wink");
 
-            wink(rand_string)
+            wink(name)
         }
-        None => wink(rand_string),
+        None => wink(name),
     }
 }
